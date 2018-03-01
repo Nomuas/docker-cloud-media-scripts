@@ -36,19 +36,6 @@ UNIONFSRWPATH="${UNIONFSRWPATH%/}/"
 UNIONFSMETAPATH="$UNIONFSRWPATH/$UNIONFSMETADIR"
 
 # SYNC UNIONFS METADATA WITH RCLONE RESTINATION
-# Remove folders
-while IFS= read -r -d '' FOLDER; do
-  # Build path to delete
-  RCLONEDELETEFOLDER="$RCLONEDEST${FOLDER#*$UNIONFSMETAPATH/}"; RCLONEDELETEFOLDER="${RCLONEDELETEFOLDER%$UNIONFSSUFFIX}"
-
-  # Delete on rclone destination
-  echo "$(date "+%Y/%m/%d %T") Deleting directory: $RCLONEDELETEFOLDER" | tee -a $LOGFILE
-  rclone ${rclone_options} purge "$RCLONEDELETEFOLDER" 2>&1 | tee -a $LOGFILE
-
-  # Delete on unionfs
-  echo "rm -r -f '$FOLDER' && rm -r -f "${FOLDER%$UNIONFSSUFFIX}"" | at now + $CACHETIME min > /dev/null 2>&1
-done < <(find $UNIONFSMETAPATH -depth -type d -mmin +$MINAGE -name *$UNIONFSSUFFIX -print0)
-
 # Remove files
 while IFS= read -r -d '' FILE; do
   # Build path to delete
@@ -61,6 +48,19 @@ while IFS= read -r -d '' FILE; do
   # Delete on unionfs
   echo "rm -f '$FILE'" | at now + $CACHETIME min > /dev/null 2>&1
 done < <(find $UNIONFSMETAPATH -type f -mmin +$MINAGE -name *$UNIONFSSUFFIX -print0)
+
+# Remove folders
+while IFS= read -r -d '' FOLDER; do
+  # Build path to delete
+  RCLONEDELETEFOLDER="$RCLONEDEST${FOLDER#*$UNIONFSMETAPATH/}"; RCLONEDELETEFOLDER="${RCLONEDELETEFOLDER%$UNIONFSSUFFIX}"
+
+  # Delete on rclone destination
+  echo "$(date "+%Y/%m/%d %T") Deleting directory: $RCLONEDELETEFOLDER" | tee -a $LOGFILE
+  rclone ${rclone_options} purge "$RCLONEDELETEFOLDER" 2>&1 | tee -a $LOGFILE
+
+  # Delete on unionfs
+  echo "rm -r -f '$FOLDER' && rm -r -f "${FOLDER%$UNIONFSSUFFIX}"" | at now + $CACHETIME min > /dev/null 2>&1
+done < <(find $UNIONFSMETAPATH -depth -type d -mmin +$MINAGE -name *$UNIONFSSUFFIX -print0)
 
 # MOVE FILES FROM UNIONFS RW DIRECTORY TO RCLONE DESTINATION
 if [[ -n $(rclone ${rclone_options} ls $UNIONFSRWPATH --min-age "$MINAGE"m --exclude "$UNIONFSMETADIR**") ]]; then
